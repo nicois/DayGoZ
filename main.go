@@ -52,18 +52,6 @@ func (a *Scalar) Add(v float64) float64 {
 	return a.current - original
 }
 
-func ConstantSignal(x float64) float64 {
-	return 1
-}
-
-func ProportionalSignal(x float64) float64 {
-	return x
-}
-
-func InverseProportionalSignal(x float64) float64 {
-	return (1 - x)
-}
-
 // the state of A (e.g. food) can affect B (e.g. health)
 func (a *Scalar) Link(b *Scalar) {
 	last_update := time.Now()
@@ -103,7 +91,6 @@ func (p *Person) Initialise() {
 	p.water = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
 	p.food = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
 
-	// go food.Link(&health)
 	last_time := time.Now()
 	for tick := range time.Tick(100 * time.Millisecond) {
 		minutes := tick.Sub(last_time).Minutes()
@@ -126,6 +113,10 @@ func (p *Person) Initialise() {
 			rate := math.Pow(10*temperature_difference, 2)
 			p.adjust(map[*Scalar]float64{p.food: -0.01 * rate, p.temperature: 0.01 * rate}, minutes)
 		}
+
+		// health
+		temperature_happiness := 0.1 - math.Abs(p.temperature.current-0.5)
+		p.adjust(map[*Scalar]float64{p.health: temperature_happiness / 10, p.food: -0.01, p.water: -0.01}, minutes)
 
 		last_time = tick
 	}
@@ -174,9 +165,9 @@ func (p Person) String() string {
 func main() {
 	p1 := Person{name: "Joe"}
 	go p1.Initialise()
-	time.Sleep(time.Duration(100 * time.Millisecond))
+	time.Sleep(100 * time.Millisecond)
 	for i := 0; i < 20; i++ {
 		fmt.Println(p1)
-		time.Sleep(time.Duration(500 * time.Millisecond))
+		time.Sleep(500 * time.Millisecond)
 	}
 }
