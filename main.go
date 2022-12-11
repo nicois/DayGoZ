@@ -1,0 +1,182 @@
+///usr/bin/true; exec /usr/bin/env go run "$0" "$@"
+package main
+
+import (
+	"fmt"
+	"math"
+	"sync"
+	"time"
+)
+
+type NumericAttribute interface {
+	Initialise()
+	Listen(chan float64)
+	Add(float64) float64
+}
+
+type Interval struct {
+	min float64
+	max float64
+}
+
+type Scalar struct {
+	min       float64
+	max       float64
+	current   float64
+	listeners []chan float64
+	mu        *sync.Mutex
+}
+
+func (a *Scalar) limits() Interval {
+	return Interval{min: a.min - a.current, max: a.max - a.current}
+}
+
+//func (a *Scalar) String() string {
+//	return fmt.Sprintf("[%v-%v] %v", a.min, a.max, a.current)
+//}
+
+func (a *Scalar) Add(v float64) float64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	original := a.current
+	a.current += v
+	if a.current < a.min {
+		a.current = a.min
+	}
+	if a.current > a.max {
+		a.current = a.max
+	}
+	for _, listener := range a.listeners {
+		listener <- a.current
+	}
+	return a.current - original
+}
+
+func ConstantSignal(x float64) float64 {
+	return 1
+}
+
+func ProportionalSignal(x float64) float64 {
+	return x
+}
+
+func InverseProportionalSignal(x float64) float64 {
+	return (1 - x)
+}
+
+// the state of A (e.g. food) can affect B (e.g. health)
+func (a *Scalar) Link(b *Scalar) {
+	last_update := time.Now()
+	for {
+		time.Sleep(10 * time.Millisecond)
+		if a.current > a.min {
+			now := time.Now()
+			duration := now.Sub(last_update)
+			added := b.Add(duration.Seconds())
+			a.Add(-added)
+			last_update = now
+		}
+	}
+}
+
+type Feedback interface {
+	Link()
+}
+
+type Person struct {
+	name        string
+	health      *Scalar
+	food        *Scalar
+	water       *Scalar
+	blood       *Scalar
+	stamina     *Scalar
+	temperature *Scalar
+	insulation  *Scalar
+}
+
+func (p *Person) Initialise() {
+	p.stamina = &Scalar{max: 1, mu: new(sync.Mutex)}
+	p.temperature = &Scalar{max: 1, current: 0.5, mu: new(sync.Mutex)}
+	p.insulation = &Scalar{max: 1, current: 0.1, mu: new(sync.Mutex)}
+	p.blood = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
+	p.health = &Scalar{max: 1, current: 0.2, mu: new(sync.Mutex)}
+	p.water = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
+	p.food = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
+
+	// go food.Link(&health)
+	last_time := time.Now()
+	for tick := range time.Tick(100 * time.Millisecond) {
+		minutes := tick.Sub(last_time).Minutes()
+
+		// blood: consume food and water, goes up faster when healthier
+		p.adjust(map[*Scalar]float64{p.food: -0.01, p.water: -0.01, p.blood: p.health.current * 0.01}, minutes)
+
+		// stamina:
+		rate := (1 - math.Abs(p.stamina.current-0.5))
+		p.adjust(map[*Scalar]float64{p.food: -0.01 * rate, p.water: -0.01 * rate, p.stamina: 0.01 * rate, p.temperature: 0.01 * rate}, minutes)
+
+		// body temp:
+		temperature_difference := p.temperature.current - 0.5
+		if temperature_difference > 0.01 {
+			rate := math.Pow(10*temperature_difference, 2)
+			p.adjust(map[*Scalar]float64{p.water: -0.01 * rate, p.temperature: -0.01 * rate * (1 - p.insulation.current)}, minutes)
+		}
+
+		if temperature_difference < -0.01 {
+			rate := math.Pow(10*temperature_difference, 2)
+			p.adjust(map[*Scalar]float64{p.food: -0.01 * rate, p.temperature: 0.01 * rate}, minutes)
+		}
+
+		last_time = tick
+	}
+}
+
+// Adjust the attributes of the person respecting the configured ratios. Scale by rate (per minute)
+// If necessary scale down the adjustment to not exceed any absolute constraints given in  max_adjust.
+func (p *Person) adjust(amounts map[*Scalar]float64, rate float64) {
+	rescale := 1.0
+	effect := make(map[*Scalar]float64)
+	for scalar, ratio := range amounts {
+		amount_to_add := ratio * rate
+		effect[scalar] = amount_to_add
+		limit := scalar.limits()
+		if amount_to_add > 0 {
+			if limit.max == 0 {
+				return
+			}
+			if exceeded_ratio := (amount_to_add / limit.max); exceeded_ratio > rescale {
+				rescale = exceeded_ratio
+			}
+		}
+		if amount_to_add < 0 {
+			if limit.min == 0 {
+				return
+			}
+			if exceeded_ratio := (amount_to_add / limit.min); exceeded_ratio > rescale {
+				rescale = exceeded_ratio
+			}
+		}
+	}
+	if rescale > 1.0 {
+		for scalar := range effect {
+			effect[scalar] *= 1 / rescale
+		}
+	}
+	for scalar, amount := range effect {
+		scalar.Add(amount)
+	}
+}
+
+func (p Person) String() string {
+	return fmt.Sprintf("%v: %v food; %v blood; %v health", p.name, p.food.current, p.blood.current, p.health.current)
+}
+
+func main() {
+	p1 := Person{name: "Joe"}
+	go p1.Initialise()
+	time.Sleep(time.Duration(100 * time.Millisecond))
+	for i := 0; i < 20; i++ {
+		fmt.Println(p1)
+		time.Sleep(time.Duration(500 * time.Millisecond))
+	}
+}
