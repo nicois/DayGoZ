@@ -24,7 +24,6 @@ type Scalar struct {
 	max       float64
 	current   float64
 	listeners []chan float64
-	mu        *sync.Mutex
 }
 
 func (a *Scalar) limits() Interval {
@@ -35,9 +34,17 @@ func (a *Scalar) limits() Interval {
 //	return fmt.Sprintf("[%v-%v] %v", a.min, a.max, a.current)
 //}
 
+func min(fs ...float64) float64 {
+	min := fs[0]
+	for _, i := range fs[1:] {
+		if i < min {
+			min = i
+		}
+	}
+	return min
+}
+
 func (a *Scalar) Add(v float64) float64 {
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	original := a.current
 	a.current += v
 	if a.current < a.min {
@@ -72,54 +79,72 @@ type Feedback interface {
 }
 
 type Person struct {
-	name        string
-	health      *Scalar
-	food        *Scalar
-	water       *Scalar
-	blood       *Scalar
-	stamina     *Scalar
-	temperature *Scalar
-	insulation  *Scalar
+	mu                  *sync.Mutex
+	name                string
+	health              Scalar
+	food                Scalar
+	water               Scalar
+	blood               Scalar
+	stamina             Scalar
+	temperature         Scalar
+	ambient_temperature Scalar
+	insulation          Scalar
 }
 
 func (p *Person) Initialise() {
-	p.stamina = &Scalar{max: 1, mu: new(sync.Mutex)}
-	p.temperature = &Scalar{max: 1, current: 0.5, mu: new(sync.Mutex)}
-	p.insulation = &Scalar{max: 1, current: 0.1, mu: new(sync.Mutex)}
-	p.blood = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
-	p.health = &Scalar{max: 1, current: 0.2, mu: new(sync.Mutex)}
-	p.water = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
-	p.food = &Scalar{max: 1, current: 0.9, mu: new(sync.Mutex)}
+	p.mu = new(sync.Mutex)
+	p.stamina = Scalar{max: 1, current: 0}
+	p.temperature = Scalar{max: 1, current: 0.5}
+	p.ambient_temperature = Scalar{min: -0.5, max: 1.5, current: 0.4}
+	p.insulation = Scalar{max: 1, current: 0.1}
+	p.blood = Scalar{max: 1, current: 0.9}
+	p.health = Scalar{max: 1, current: 0.8}
+	p.water = Scalar{max: 1, current: 0.9}
+	p.food = Scalar{max: 1, current: 0.9}
 
 	last_time := time.Now()
 	for tick := range time.Tick(100 * time.Millisecond) {
-		minutes := tick.Sub(last_time).Minutes()
-
-		// blood: consume food and water, goes up faster when healthier
-		p.adjust(map[*Scalar]float64{p.food: -0.01, p.water: -0.01, p.blood: p.health.current * 0.01}, minutes)
-
-		// stamina:
-		rate := (1 - math.Abs(p.stamina.current-0.5))
-		p.adjust(map[*Scalar]float64{p.food: -0.01 * rate, p.water: -0.01 * rate, p.stamina: 0.01 * rate, p.temperature: 0.01 * rate}, minutes)
-
-		// body temp:
-		temperature_difference := p.temperature.current - 0.5
-		if temperature_difference > 0.01 {
-			rate := math.Pow(10*temperature_difference, 2)
-			p.adjust(map[*Scalar]float64{p.water: -0.01 * rate, p.temperature: -0.01 * rate * (1 - p.insulation.current)}, minutes)
-		}
-
-		if temperature_difference < -0.01 {
-			rate := math.Pow(10*temperature_difference, 2)
-			p.adjust(map[*Scalar]float64{p.food: -0.01 * rate, p.temperature: 0.01 * rate}, minutes)
-		}
-
-		// health
-		temperature_happiness := 0.1 - math.Abs(p.temperature.current-0.5)
-		p.adjust(map[*Scalar]float64{p.health: temperature_happiness / 10, p.food: -0.01, p.water: -0.01}, minutes)
-
+		p.calculate_time_based_effects(tick.Sub(last_time).Seconds())
 		last_time = tick
+		if p.health.current == 0 {
+			return
+		}
 	}
+}
+
+func (p *Person) calculate_time_based_effects(minutes float64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// blood: consume food and water, goes up faster when healthier
+	p.adjust(map[*Scalar]float64{&p.food: -0.01, &p.water: -0.01, &p.blood: p.health.current * 0.01}, minutes)
+
+	// stamina:
+	rate := (1 - math.Abs(p.stamina.current-0.5))
+	p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.water: -0.01 * rate, &p.stamina: rate, &p.temperature: 0.01 * rate}, minutes)
+
+	// body temp:
+	temperature_difference := p.temperature.current - 0.5
+	if temperature_difference > 0.01 {
+		rate := math.Pow(10*temperature_difference, 2)
+		p.adjust(map[*Scalar]float64{&p.water: -0.01 * rate, &p.temperature: -0.01 * rate * (1 - p.insulation.current)}, minutes)
+	}
+
+	if temperature_difference < -0.01 {
+		rate := math.Pow(10*temperature_difference, 2)
+		p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.temperature: 0.01 * rate}, minutes)
+	}
+
+	// health (temperature effects)
+	temperature_happiness := 0.1 - math.Abs(p.temperature.current-0.5)
+	p.adjust(map[*Scalar]float64{&p.health: temperature_happiness / 10, &p.food: -0.01, &p.water: -0.01}, minutes)
+
+	// health (starvation effects)
+	if deficit := 0.2 - min(p.food.current, p.water.current); deficit > 0 {
+		p.adjust(map[*Scalar]float64{&p.health: -deficit / 2}, minutes)
+	}
+
+	// metabolism
+	p.adjust(map[*Scalar]float64{&p.food: -0.005, &p.water: -0.005}, minutes)
 }
 
 // Adjust the attributes of the person respecting the configured ratios. Scale by rate (per minute)
@@ -159,14 +184,14 @@ func (p *Person) adjust(amounts map[*Scalar]float64, rate float64) {
 }
 
 func (p Person) String() string {
-	return fmt.Sprintf("%v: %v food; %v blood; %v health", p.name, p.food.current, p.blood.current, p.health.current)
+	return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current)
 }
 
 func main() {
 	p1 := Person{name: "Joe"}
 	go p1.Initialise()
 	time.Sleep(100 * time.Millisecond)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 90; i++ {
 		fmt.Println(p1)
 		time.Sleep(500 * time.Millisecond)
 	}
