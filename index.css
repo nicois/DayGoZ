@@ -1,0 +1,26 @@
+body {
+  background-color: powderblue;
+}
+#stats span {
+  background-color: white;
+  white-space: nowrap;
+  font-size: 1.875em;
+}
+
+button {
+  font-size: 1.2em;
+  margin: 0.4em;
+}
+
+.good {
+  color: green;
+}
+.ok {
+  color: black;
+}
+.warning {
+  color: orange;
+}
+.danger {
+  color: red;
+}
