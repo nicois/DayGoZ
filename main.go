@@ -97,12 +97,12 @@ type Person struct {
 
 func (p *Person) Initialise() {
 	p.mu = new(sync.Mutex)
-	p.stamina = Scalar{max: 1, current: 0}
+	p.stamina = Scalar{max: 1, current: 0.8}
 	p.temperature = Scalar{max: 1, current: 0.5}
 	p.ambient_temperature = Scalar{min: -0.5, max: 1.5, current: 0.4}
 	p.insulation = Scalar{max: 1, current: 0.1}
 	p.blood = Scalar{max: 1, current: 0.9}
-	p.health = Scalar{max: 1, current: 0.8}
+	p.health = Scalar{max: 1, current: 0.9}
 	p.water = Scalar{max: 1, current: 0.9}
 	p.food = Scalar{max: 1, current: 0.9}
 
@@ -123,7 +123,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	p.adjust(map[*Scalar]float64{&p.food: -0.01, &p.water: -0.01, &p.blood: p.health.current * 0.01}, minutes)
 
 	// stamina:
-	rate := math.Pow(2*(1-math.Abs(p.stamina.current-0.5)), 3) / 50
+	rate := math.Pow(3*(1-math.Abs(p.stamina.current-0.5)), 4) / 10
 	p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.water: -0.01 * rate, &p.stamina: rate, &p.temperature: 0.01 * rate}, minutes)
 
 	// body temp:
@@ -240,7 +240,11 @@ func kb(p *Person) {
 				case 122: // z
 					fmt.Println("owch!")
 					p.mu.Lock()
-					p.health.Add(min(0, -0.1+rand.NormFloat64()/30))
+					damage := math.Max(0, 0.1+rand.NormFloat64()/30)
+					if damage > 0 {
+						fmt.Printf("You are hurt, losing %v health\n", damage)
+						p.health.Add(-damage)
+					}
 					if rand.Intn(10) >= 8 {
 						p.blood.Add(-0.2)
 					}
