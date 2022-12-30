@@ -4,8 +4,12 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
+	"os"
 	"sync"
 	"time"
+
+	term "github.com/nsf/termbox-go"
 )
 
 type NumericAttribute interface {
@@ -134,6 +138,10 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 		p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.temperature: 0.01 * rate}, minutes)
 	}
 
+	// ambient temp effects:
+	rate = (p.ambient_temperature.current - p.temperature.current)
+	p.adjust(map[*Scalar]float64{&p.temperature: 0.1 * rate}, minutes)
+
 	// health (temperature effects)
 	temperature_happiness := 0.1 - math.Abs(p.temperature.current-0.5)
 	p.adjust(map[*Scalar]float64{&p.health: temperature_happiness / 10, &p.food: -0.01, &p.water: -0.01}, minutes)
@@ -144,7 +152,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	}
 
 	// metabolism
-	p.adjust(map[*Scalar]float64{&p.food: -0.005, &p.water: -0.005}, minutes)
+	p.adjust(map[*Scalar]float64{&p.food: -0.005, &p.water: -0.005, &p.temperature: 0.005}, minutes)
 }
 
 // Adjust the attributes of the person respecting the configured ratios. Scale by rate (per minute)
@@ -187,12 +195,72 @@ func (p Person) String() string {
 	return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current)
 }
 
+func kb(p *Person) {
+	err := term.Init()
+	if err != nil {
+		panic(err)
+	}
+	defer term.Close()
+
+	for {
+		switch ev := term.PollEvent(); ev.Type {
+		case term.EventKey:
+			switch ev.Key {
+			case term.KeyEsc:
+				term.Sync()
+				fmt.Println("ESC pressed")
+				os.Exit(0)
+			default:
+				switch ev.Ch {
+				case 67: // C
+					fmt.Println("brrrr!")
+					p.mu.Lock()
+					p.ambient_temperature.Add(-0.1)
+					p.mu.Unlock()
+				case 72: // H
+					fmt.Println("phew!")
+					p.mu.Lock()
+					p.ambient_temperature.Add(0.1)
+					p.mu.Unlock()
+				case 100: // d
+					fmt.Println("gluuuuug!")
+					p.mu.Lock()
+					p.water.Add(0.3)
+					p.mu.Unlock()
+				case 101: // e
+					fmt.Println("yuuuuunm!")
+					p.mu.Lock()
+					p.food.Add(0.3)
+					p.mu.Unlock()
+				case 114: // r
+					fmt.Println("ruuuuunnn!")
+					p.mu.Lock()
+					p.stamina.Add(-0.5)
+					p.mu.Unlock()
+				case 122: // z
+					fmt.Println("owch!")
+					p.mu.Lock()
+					p.health.Add(min(0, -0.1+rand.NormFloat64()/30))
+					if rand.Intn(10) >= 8 {
+						p.blood.Add(-0.2)
+					}
+					p.mu.Unlock()
+				default:
+					fmt.Println("You pressed the key with numeric code", ev.Ch)
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	p1 := Person{name: "Joe"}
 	go p1.Initialise()
+	go kb(&p1)
 	time.Sleep(100 * time.Millisecond)
-	for i := 0; i < 90; i++ {
+	for {
 		fmt.Println(p1)
+		// term.Sync()
 		time.Sleep(500 * time.Millisecond)
 	}
 }
