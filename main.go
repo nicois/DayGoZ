@@ -108,7 +108,7 @@ func (p *Person) Initialise() {
 
 	last_time := time.Now()
 	for tick := range time.Tick(100 * time.Millisecond) {
-		p.calculate_time_based_effects(tick.Sub(last_time).Seconds())
+		p.calculate_time_based_effects(tick.Sub(last_time).Minutes())
 		last_time = tick
 		if p.health.current == 0 {
 			return
@@ -123,7 +123,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	p.adjust(map[*Scalar]float64{&p.food: -0.01, &p.water: -0.01, &p.blood: p.health.current * 0.01}, minutes)
 
 	// stamina:
-	rate := (1 - math.Abs(p.stamina.current-0.5))
+	rate := math.Pow(2*(1-math.Abs(p.stamina.current-0.5)), 3)
 	p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.water: -0.01 * rate, &p.stamina: rate, &p.temperature: 0.01 * rate}, minutes)
 
 	// body temp:
@@ -235,7 +235,7 @@ func kb(p *Person) {
 				case 114: // r
 					fmt.Println("ruuuuunnn!")
 					p.mu.Lock()
-					p.stamina.Add(-0.5)
+					p.stamina.Add(-0.3)
 					p.mu.Unlock()
 				case 122: // z
 					fmt.Println("owch!")
