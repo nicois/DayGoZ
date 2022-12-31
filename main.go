@@ -49,6 +49,13 @@ func min(fs ...float64) float64 {
 	return min
 }
 
+func minDuration(a, b time.Duration) time.Duration {
+	if a <= b {
+		return a
+	}
+	return b
+}
+
 func (a *Scalar) Add(v float64) float64 {
 	original := a.current
 	a.current += v
@@ -95,16 +102,93 @@ type Person struct {
 	ambient_temperature Scalar
 	insulation          Scalar
 	sender              Sender
+	activity            *Activity
+	activityMutex       *sync.Mutex
+	activityTicker      *chan float64
+	activityCanceller   *chan bool
+}
+
+type Run struct {
+	person    *Person
+	warmedUp  bool
+	lastTick  time.Time
+	canceller chan bool
+}
+
+func (activity *Run) Cancel() {
+	activity.canceller <- true
+}
+
+func (activity *Run) Begin(canceller chan bool, calcTime chan float64) error {
+	defer activity.person.activityMutex.Unlock()
+	warmupInterval := time.Millisecond * 500
+	cooldownInterval := time.Millisecond * 200
+	startTime := time.Now()
+	// warmup
+	warmupTimer := time.NewTimer(warmupInterval)
+	fmt.Println("preparing to run")
+warmingUp:
+	for {
+		select {
+		case <-canceller:
+			// did not complete warmup. Cooldown starts, but is not longer
+			// than the amount of time we warmed up for
+			cooldown := minDuration(cooldownInterval, time.Since(startTime))
+			fmt.Println("cooling down for ", cooldown)
+			time.Sleep(cooldown)
+			return nil
+		case <-warmupTimer.C:
+			break warmingUp
+		}
+	}
+	<-calcTime
+	// flush any additional calctime events, in case of a race with a previous
+	// activity
+flush:
+	for {
+		select {
+		case <-calcTime:
+		default:
+			break flush
+		}
+	}
+	for {
+		select {
+		case duration := <-calcTime:
+			fmt.Println("ran for ", duration)
+		case <-canceller:
+			fmt.Println("cooling down for ", cooldownInterval)
+			time.Sleep(cooldownInterval)
+			return nil
+		}
+	}
+}
+
+type Activity interface {
+	Begin(canceller chan bool, calcTime chan float64) error
+	Cancel()
+}
+
+func (p *Person) StartActivity(activity *Activity) error {
+	if !p.activityMutex.TryLock() {
+		return fmt.Errorf("Could not get a lock; an activity is probably in progress.")
+	}
+	p.activityCanceller = make(chan bool)
+	p.activityTicker = make(chan float64)
+	p.activity = activity
+	activity.Begin(p.activityCanceller, p.activityTicker)
+	return nil
 }
 
 func (p *Person) Initialise() {
 	p.mu = new(sync.Mutex)
+	p.activityMutex = new(sync.Mutex)
 	p.stamina = Scalar{max: 1, current: 0.8}
 	p.temperature = Scalar{max: 1, current: 0.5}
 	p.ambient_temperature = Scalar{min: -0.5, max: 1.5, current: 0.4}
 	p.insulation = Scalar{max: 1, current: 0.1}
-	p.blood = Scalar{max: 1, current: 0.9}
-	p.health = Scalar{max: 1, current: 0.9}
+	p.blood = Scalar{max: 1, current: 1}
+	p.health = Scalar{max: 1, current: 1}
 	p.water = Scalar{max: 1, current: 0.9}
 	p.food = Scalar{max: 1, current: 0.9}
 	// p.sender = ntfy.Create("foobarbaz")
@@ -112,6 +196,9 @@ func (p *Person) Initialise() {
 	last_time := time.Now()
 	summary := fmt.Sprint(p)
 	p.notify(summary, "min")
+	// fixme:  define channel to allow activities
+	// to force a resync of the time-based effects,
+	// taking place as the action passes warmup
 	for tick := range time.Tick(100 * time.Millisecond) {
 		if p.health.current == 0 {
 			p.notify(summary, "max")
@@ -139,6 +226,10 @@ func (p *Person) notify(text string, priority string) {
 func (p *Person) calculate_time_based_effects(minutes float64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.activity != nil {
+	}
+
 	// blood: consume food and water, goes up faster when healthier
 	p.adjust(map[*Scalar]float64{&p.food: -0.01, &p.water: -0.01, &p.blood: p.health.current * 0.01}, minutes)
 
@@ -266,13 +357,13 @@ func kb(p *Person) {
 					p.mu.Unlock()
 				case 114: // r
 					fmt.Println("ruuuuunnn!")
-					p.mu.Lock()
-					p.stamina.Add(-0.3)
-					p.mu.Unlock()
+					run := Run{}
+					p.StartActivity(&run)
+					// p.do
 				case 122: // z
 					fmt.Println("owch!")
 					p.mu.Lock()
-					damage := math.Max(0, 0.1+rand.NormFloat64()/30)
+					damage := math.Max(0, 0.001+rand.NormFloat64()/30)
 					if damage > 0 {
 						fmt.Printf("You are hurt, losing %.3f health\n", damage)
 						p.health.Add(-damage)
