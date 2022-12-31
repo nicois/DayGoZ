@@ -171,8 +171,7 @@ flush:
 }
 
 type Activity interface {
-	GetChannels() (*chan bool, *chan float64)
-	// GetChannels() (canceller chan bool, ticker chan float64)
+	GetChannels() (canceller *chan bool, ticker *chan float64)
 	Begin() error
 	Cancel()
 }
