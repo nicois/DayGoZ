@@ -103,7 +103,7 @@ type Person struct {
 	insulation          Scalar
 	sender              Sender
 
-	activity          *Activity
+	activity          Activity
 	activityMutex     *sync.Mutex
 	activityTicker    *chan float64
 	activityCanceller *chan bool
@@ -117,8 +117,8 @@ type Run struct {
 	ticker    chan float64
 }
 
-func (activity *Run) GetChannels() (canceller chan bool, ticker chan float64) {
-	return activity.canceller, activity.ticker
+func (activity *Run) GetChannels() (canceller *chan bool, ticker *chan float64) {
+	return &activity.canceller, &activity.ticker
 }
 
 func (activity *Run) Cancel() {
@@ -177,7 +177,7 @@ type Activity interface {
 	Cancel()
 }
 
-func (p *Person) StartActivity(activity *Activity) error {
+func (p *Person) StartActivity(activity Activity) error {
 	if !p.activityMutex.TryLock() {
 		return fmt.Errorf("Could not get a lock; an activity is probably in progress.")
 	}
