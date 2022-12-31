@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"nicois/bmon/ntfy"
 	"os"
 	"sync"
 	"time"
@@ -93,6 +94,7 @@ type Person struct {
 	temperature         Scalar
 	ambient_temperature Scalar
 	insulation          Scalar
+	sender              Sender
 }
 
 func (p *Person) Initialise() {
@@ -105,13 +107,31 @@ func (p *Person) Initialise() {
 	p.health = Scalar{max: 1, current: 0.9}
 	p.water = Scalar{max: 1, current: 0.9}
 	p.food = Scalar{max: 1, current: 0.9}
+	p.sender = ntfy.Create("foobarbaz")
 
 	last_time := time.Now()
+	summary := fmt.Sprint(p)
+	p.notify(summary, "min")
 	for tick := range time.Tick(100 * time.Millisecond) {
 		p.calculate_time_based_effects(tick.Sub(last_time).Minutes())
 		last_time = tick
 		if p.health.current == 0 {
+			p.notify(summary, "max")
 			return
+		}
+	}
+}
+
+type Sender interface {
+	Send(ntfy.Message) error
+}
+
+func (p *Person) notify(text string, priority string) {
+	if sender := p.sender; sender != nil {
+		headers := map[string]string{"Priority": priority}
+		err := sender.Send(ntfy.Message{Text: text, Headers: headers})
+		if err != nil {
+			fmt.Println(err)
 		}
 	}
 }
@@ -272,11 +292,10 @@ func kb(p *Person) {
 func main() {
 	p1 := Person{name: "Joe"}
 	go p1.Initialise()
-	go kb(&p1)
+	// go kb(&p1)
 	time.Sleep(100 * time.Millisecond)
 	for {
 		fmt.Println(p1)
-		// term.Sync()
 		time.Sleep(500 * time.Millisecond)
 	}
 }
