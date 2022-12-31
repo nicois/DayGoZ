@@ -102,10 +102,11 @@ type Person struct {
 	ambient_temperature Scalar
 	insulation          Scalar
 	sender              Sender
-	activity            *Activity
-	activityMutex       *sync.Mutex
-	activityTicker      *chan float64
-	activityCanceller   *chan bool
+
+	activity          *Activity
+	activityMutex     *sync.Mutex
+	activityTicker    *chan float64
+	activityCanceller *chan bool
 }
 
 type Run struct {
@@ -113,13 +114,18 @@ type Run struct {
 	warmedUp  bool
 	lastTick  time.Time
 	canceller chan bool
+	ticker    chan float64
+}
+
+func (activity *Run) GetChannels() (canceller chan bool, ticker chan float64) {
+	return activity.canceller, activity.ticker
 }
 
 func (activity *Run) Cancel() {
 	activity.canceller <- true
 }
 
-func (activity *Run) Begin(canceller chan bool, calcTime chan float64) error {
+func (activity *Run) Begin() error {
 	defer activity.person.activityMutex.Unlock()
 	warmupInterval := time.Millisecond * 500
 	cooldownInterval := time.Millisecond * 200
@@ -130,7 +136,7 @@ func (activity *Run) Begin(canceller chan bool, calcTime chan float64) error {
 warmingUp:
 	for {
 		select {
-		case <-canceller:
+		case <-activity.canceller:
 			// did not complete warmup. Cooldown starts, but is not longer
 			// than the amount of time we warmed up for
 			cooldown := minDuration(cooldownInterval, time.Since(startTime))
@@ -141,22 +147,22 @@ warmingUp:
 			break warmingUp
 		}
 	}
-	<-calcTime
+	<-activity.ticker
 	// flush any additional calctime events, in case of a race with a previous
 	// activity
 flush:
 	for {
 		select {
-		case <-calcTime:
+		case <-activity.ticker:
 		default:
 			break flush
 		}
 	}
 	for {
 		select {
-		case duration := <-calcTime:
+		case duration := <-activity.ticker:
 			fmt.Println("ran for ", duration)
-		case <-canceller:
+		case <-activity.canceller:
 			fmt.Println("cooling down for ", cooldownInterval)
 			time.Sleep(cooldownInterval)
 			return nil
@@ -165,7 +171,9 @@ flush:
 }
 
 type Activity interface {
-	Begin(canceller chan bool, calcTime chan float64) error
+	GetChannels() (*chan bool, *chan float64)
+	// GetChannels() (canceller chan bool, ticker chan float64)
+	Begin() error
 	Cancel()
 }
 
@@ -173,10 +181,10 @@ func (p *Person) StartActivity(activity *Activity) error {
 	if !p.activityMutex.TryLock() {
 		return fmt.Errorf("Could not get a lock; an activity is probably in progress.")
 	}
-	p.activityCanceller = make(chan bool)
-	p.activityTicker = make(chan float64)
+	activity.Cancel()
+	p.activityCanceller, p.activityTicker = activity.GetChannels()
 	p.activity = activity
-	activity.Begin(p.activityCanceller, p.activityTicker)
+	activity.Begin()
 	return nil
 }
 
