@@ -139,7 +139,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	}
 
 	// ambient temp effects:
-	rate = (p.ambient_temperature.current - p.temperature.current)
+	rate = (p.ambient_temperature.current - p.temperature.current) * (1 - p.insulation.current)
 	p.adjust(map[*Scalar]float64{&p.temperature: 0.1 * rate}, minutes)
 
 	// health (temperature effects)
@@ -152,7 +152,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	}
 
 	// metabolism
-	p.adjust(map[*Scalar]float64{&p.food: -0.005, &p.water: -0.005, &p.temperature: 0.005}, minutes)
+	p.adjust(map[*Scalar]float64{&p.food: -0.0005, &p.water: -0.0005, &p.temperature: 0.0005}, minutes)
 }
 
 // Adjust the attributes of the person respecting the configured ratios. Scale by rate (per minute)
@@ -192,7 +192,7 @@ func (p *Person) adjust(amounts map[*Scalar]float64, rate float64) {
 }
 
 func (p Person) String() string {
-	return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current)
+	return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f; I:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current, p.insulation.current)
 }
 
 func kb(p *Person) {
@@ -212,6 +212,18 @@ func kb(p *Person) {
 				os.Exit(0)
 			default:
 				switch ev.Ch {
+				case 0: // not a normal key
+					fmt.Printf("Not a normal key: %v", ev.Key)
+				case 116: // t
+					fmt.Println("t-shirt!")
+					p.mu.Lock()
+					p.insulation.Add(-0.1)
+					p.mu.Unlock()
+				case 106: // j
+					fmt.Println("toasty jumper!")
+					p.mu.Lock()
+					p.insulation.Add(0.1)
+					p.mu.Unlock()
 				case 67: // C
 					fmt.Println("brrrr!")
 					p.mu.Lock()
