@@ -274,7 +274,7 @@ func kb(p *Person) {
 					p.mu.Lock()
 					damage := math.Max(0, 0.1+rand.NormFloat64()/30)
 					if damage > 0 {
-						fmt.Printf("You are hurt, losing %v health\n", damage)
+						fmt.Printf("You are hurt, losing %.3f health\n", damage)
 						p.health.Add(-damage)
 					}
 					if rand.Intn(10) >= 8 {
@@ -290,9 +290,9 @@ func kb(p *Person) {
 }
 
 func main() {
-	p1 := Person{name: "Joe"}
+	p1 := Person{name: "Alex"}
 	go p1.Initialise()
-	// go kb(&p1)
+	go kb(&p1)
 	time.Sleep(100 * time.Millisecond)
 	for {
 		fmt.Println(p1)
