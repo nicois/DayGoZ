@@ -107,18 +107,18 @@ func (p *Person) Initialise() {
 	p.health = Scalar{max: 1, current: 0.9}
 	p.water = Scalar{max: 1, current: 0.9}
 	p.food = Scalar{max: 1, current: 0.9}
-	p.sender = ntfy.Create("foobarbaz")
+	// p.sender = ntfy.Create("foobarbaz")
 
 	last_time := time.Now()
 	summary := fmt.Sprint(p)
 	p.notify(summary, "min")
 	for tick := range time.Tick(100 * time.Millisecond) {
-		p.calculate_time_based_effects(tick.Sub(last_time).Minutes())
-		last_time = tick
 		if p.health.current == 0 {
 			p.notify(summary, "max")
 			return
 		}
+		p.calculate_time_based_effects(tick.Sub(last_time).Minutes())
+		last_time = tick
 	}
 }
 
@@ -276,6 +276,8 @@ func kb(p *Person) {
 					if damage > 0 {
 						fmt.Printf("You are hurt, losing %.3f health\n", damage)
 						p.health.Add(-damage)
+						p.notify(fmt.Sprintf("You are hurt, losing %.3f health\n", damage), "default")
+						p.notify(fmt.Sprint(p), "low")
 					}
 					if rand.Intn(10) >= 8 {
 						p.blood.Add(-0.2)
@@ -296,6 +298,6 @@ func main() {
 	time.Sleep(100 * time.Millisecond)
 	for {
 		fmt.Println(p1)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
