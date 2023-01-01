@@ -92,6 +92,8 @@ type Person struct {
 	insulation          Scalar
 	sender              Sender
 
+	mouth chan Consumable
+
 	activity          Activity
 	activityMutex     *sync.Mutex
 	activityTicker    *chan float64
@@ -126,6 +128,7 @@ func (p *Person) Initialise() {
 	p.health = Scalar{max: 1, current: 1, profile: OneGood}
 	p.water = Scalar{max: 1, current: 0.9, profile: OneGood}
 	p.food = Scalar{max: 1, current: 0.9, profile: OneGood}
+	p.mouth = make(chan Consumable)
 	// p.sender = ntfy.Create("dayz")
 
 	last_time := time.Now()
@@ -134,6 +137,7 @@ func (p *Person) Initialise() {
 	// fixme:  define channel to allow activities
 	// to force a resync of the time-based effects,
 	// taking place as the action passes warmup
+	go Digester(p, p.mouth)
 	for tick := range time.Tick(100 * time.Millisecond) {
 		if p.health.current == 0 {
 			p.notify(summary, "max")

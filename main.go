@@ -134,6 +134,12 @@ func kb(p *Person, cell *Cell) {
 					p.mu.Lock()
 					p.insulation.Add(0.1)
 					p.mu.Unlock()
+				case 'w':
+					cell.Log("glugging on some water!")
+					p.mouth <- Water(10)
+				case 'b':
+					cell.Log("munching on a banana!")
+					p.mouth <- Banana()
 				case 'C':
 					cell.Log("brrrr!")
 					p.mu.Lock()
