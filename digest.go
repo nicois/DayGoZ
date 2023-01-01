@@ -99,13 +99,16 @@ func Peaches() Consumable {
 }
 
 func Apple() Consumable {
-	return &Food{name: "apple", volume: 80, volumePerMinute: 10, foodPerVolume: 0.002, waterPerVolume: 0.001}
+	return &Food{name: "apple", volume: 80, volumePerMinute: 10, foodPerVolume: 0.001, waterPerVolume: 0.001}
 }
 
 func Banana() Consumable {
-	return &Food{name: "banana", volume: 100, volumePerMinute: 1, foodPerVolume: 0.005, waterPerVolume: 0.0001}
+	return &Food{name: "banana", volume: 100, volumePerMinute: 1, foodPerVolume: 0.003, waterPerVolume: 0.0001}
 }
 
+func Ryvita() Consumable {
+	return &Food{name: "ryvita", volume: 100, volumePerMinute: 25, foodPerVolume: 0.001, waterPerVolume: -0.001}
+}
 func MagicPotion() Consumable {
 	return &Food{name: "magic potion", volume: 100, volumePerMinute: 100, healthPerVolume: 0.001, waterPerVolume: 0.001}
 }
