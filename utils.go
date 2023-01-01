@@ -21,3 +21,8 @@ func minDuration(a, b time.Duration) time.Duration {
 	}
 	return b
 }
+
+func remove[Thing interface{}](s []Thing, i int) []Thing {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}

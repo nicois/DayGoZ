@@ -9,6 +9,8 @@ import (
 type Consumable interface {
 	GetRemainingVolume() float64
 	Consume(person *Person, minutes float64)
+	String() string
+	Merge(consumable Consumable) bool
 }
 
 type Food struct {
@@ -20,11 +22,28 @@ type Food struct {
 	healthPerVolume float64
 }
 
+func (f *Food) Merge(c Consumable) bool {
+	switch v := c.(type) {
+	case *Food:
+		if v.name == f.name {
+			f.volume += v.volume
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+func (f *Food) String() string {
+	return fmt.Sprintf("%v: %.1f", f.name, f.volume)
+}
+
 func Digester(p *Person, mouth chan Consumable) {
 	chewsPerMinute := 60.0
 	capacity := 500.0
 	warned := false
 	var stomach []Consumable
+loopy:
 	for {
 		if len(stomach) == 0 {
 			warned = false
@@ -33,6 +52,11 @@ func Digester(p *Person, mouth chan Consumable) {
 		digestionTimer := time.NewTimer(time.Minute / time.Duration(chewsPerMinute))
 		select {
 		case consumable := <-mouth:
+			for _, digesting := range stomach {
+				if digesting.Merge(consumable) {
+					continue loopy
+				}
+			}
 			stomach = append(stomach, consumable)
 		case <-digestionTimer.C:
 			totalVolume := 0.0
@@ -41,6 +65,9 @@ func Digester(p *Person, mouth chan Consumable) {
 			}
 			remainingCapacity := capacity - totalVolume
 			p.stomach = fmt.Sprintf("Stomach remaining capacity: %.0f", remainingCapacity)
+			for _, digesting := range stomach {
+				p.stomach += fmt.Sprintf("\n%v", digesting)
+			}
 			if totalVolume <= 0.0000001 {
 				p.Log("finished digesting for now")
 				stomach = nil
@@ -95,7 +122,7 @@ func Chocolate() Consumable {
 }
 
 func Peaches() Consumable {
-	return &Food{name: "a can of juicy peaches", volume: 300, volumePerMinute: 10, foodPerVolume: 0.005, waterPerVolume: 0.002}
+	return &Food{name: "a can of juicy peaches", volume: 300, volumePerMinute: 30, foodPerVolume: 0.001, waterPerVolume: 0.001}
 }
 
 func Apple() Consumable {
@@ -107,8 +134,9 @@ func Banana() Consumable {
 }
 
 func Ryvita() Consumable {
-	return &Food{name: "ryvita", volume: 100, volumePerMinute: 25, foodPerVolume: 0.001, waterPerVolume: -0.001}
+	return &Food{name: "ryvita", volume: 50, volumePerMinute: 10, foodPerVolume: 0.01, waterPerVolume: -0.001}
 }
+
 func MagicPotion() Consumable {
 	return &Food{name: "magic potion", volume: 100, volumePerMinute: 100, healthPerVolume: 0.001, waterPerVolume: 0.001}
 }

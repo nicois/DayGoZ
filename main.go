@@ -241,7 +241,7 @@ func showPlayer(p *Person, c *Cell) {
 	showValue(c, "Amb.Temp.", &p.ambient_temperature, 70, 2)
 	showValue(c, "Insul.", &p.insulation, 80, 2)
 
-	c.DrawText(10, 5, 50, 5, p.stomach)
+	c.DrawText(10, 5, 120, 12, p.stomach)
 }
 
 func main() {
