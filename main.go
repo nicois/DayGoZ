@@ -3,14 +3,16 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"nicois/bmon/ntfy"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
-	term "github.com/nsf/termbox-go"
+	tcell "github.com/gdamore/tcell/v2"
 )
 
 type NumericAttribute interface {
@@ -107,67 +109,6 @@ type Person struct {
 	activityMutex     *sync.Mutex
 	activityTicker    *chan float64
 	activityCanceller *chan bool
-}
-
-type Run struct {
-	person    *Person
-	warmedUp  bool
-	lastTick  time.Time
-	canceller chan bool
-	ticker    chan float64
-}
-
-func (activity *Run) GetChannels() (canceller *chan bool, ticker *chan float64) {
-	return &activity.canceller, &activity.ticker
-}
-
-func (activity *Run) Cancel() {
-	activity.canceller <- true
-}
-
-func (activity *Run) Begin() error {
-	defer activity.person.activityMutex.Unlock()
-	warmupInterval := time.Millisecond * 500
-	cooldownInterval := time.Millisecond * 200
-	startTime := time.Now()
-	// warmup
-	warmupTimer := time.NewTimer(warmupInterval)
-	fmt.Println("preparing to run")
-warmingUp:
-	for {
-		select {
-		case <-activity.canceller:
-			// did not complete warmup. Cooldown starts, but is not longer
-			// than the amount of time we warmed up for
-			cooldown := minDuration(cooldownInterval, time.Since(startTime))
-			fmt.Println("cooling down for ", cooldown)
-			time.Sleep(cooldown)
-			return nil
-		case <-warmupTimer.C:
-			break warmingUp
-		}
-	}
-	<-activity.ticker
-	// flush any additional calctime events, in case of a race with a previous
-	// activity
-flush:
-	for {
-		select {
-		case <-activity.ticker:
-		default:
-			break flush
-		}
-	}
-	for {
-		select {
-		case duration := <-activity.ticker:
-			fmt.Println("ran for ", duration)
-		case <-activity.canceller:
-			fmt.Println("cooling down for ", cooldownInterval)
-			time.Sleep(cooldownInterval)
-			return nil
-		}
-	}
 }
 
 type Activity interface {
@@ -313,37 +254,114 @@ func (p Person) String() string {
 	return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f; I:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current, p.insulation.current)
 }
 
-func kb(p *Person) {
-	err := term.Init()
-	if err != nil {
-		panic(err)
-	}
-	defer term.Close()
+func (c *Cell) Shutdown() {
+	c.screen.Fini()
+}
 
+func CreateCell() *Cell {
+	s, err := tcell.NewScreen()
+	if err != nil {
+		log.Fatalf("%+v", err)
+	}
+	if err := s.Init(); err != nil {
+		log.Fatalf("%+v", err)
+	}
+
+	// Set default text style
+	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
+	s.SetStyle(defStyle)
+
+	// Clear screen
+	s.Clear()
+	return &Cell{style: defStyle, screen: s}
+}
+
+func (c *Cell) DrawText(x1, y1, x2, y2 int, text string) {
+	row := y1
+	col := x1
+runes:
+	for _, r := range []rune(text) {
+		if r == '\n' {
+			for x := col; x < x2; x++ {
+				c.screen.SetContent(x, row, ' ', nil, c.style)
+			}
+			col = x1
+			row++
+			continue runes
+		}
+		c.screen.SetContent(col, row, r, nil, c.style)
+		col++
+		if col >= x2 {
+			row++
+			col = x1
+		}
+		if row > y2 {
+			break
+		}
+	}
+	for y := row; y < y2; y++ {
+		for x := col; x < x2; x++ {
+			c.screen.SetContent(x, y, ' ', nil, c.style)
+		}
+		col = x1
+	}
+	c.screen.Sync()
+}
+
+type Screen interface {
+	DrawText(x1, y1, x2, y2 int, text string)
+	Shutdown()
+}
+
+type Cell struct {
+	style  tcell.Style
+	screen tcell.Screen
+	// := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
+	lines []string
+}
+
+func (c *Cell) Log(s string) {
+	if len(c.lines) > 12 {
+		c.lines = c.lines[1:]
+	}
+	c.lines = append(c.lines, (time.Now().Format(time.UnixDate) + ": " + strings.TrimSpace(s)))
+
+	c.DrawText(1, 15, 100, 25, strings.Join(c.lines, "\n"))
+}
+
+func kb(p *Person, cell *Cell) {
 	for {
-		switch ev := term.PollEvent(); ev.Type {
-		case term.EventKey:
-			switch ev.Key {
-			case term.KeyEsc:
-				term.Sync()
+		// Update screen
+		cell.screen.Show()
+
+		// Poll event
+		ev := cell.screen.PollEvent()
+
+		// Process event
+		switch ev := ev.(type) {
+		case *tcell.EventResize:
+			cell.screen.Sync()
+		case *tcell.EventKey:
+
+			switch ev.Key() {
+			case tcell.KeyEscape:
 				fmt.Println("ESC pressed")
+				cell.Shutdown()
 				os.Exit(0)
-			default:
-				switch ev.Ch {
-				case 0: // not a normal key
-					fmt.Printf("Not a normal key: %v", ev.Key)
-				case 116: // t
-					fmt.Println("t-shirt!")
+			case tcell.KeyRune:
+				switch ev.Rune() {
+				case 't':
+					cell.Log("t-shirt!")
 					p.mu.Lock()
 					p.insulation.Add(-0.1)
 					p.mu.Unlock()
-				case 106: // j
-					fmt.Println("toasty jumper!")
+				case 'j':
+					cell.Log("toasty jumper!")
 					p.mu.Lock()
 					p.insulation.Add(0.1)
 					p.mu.Unlock()
-				case 67: // C
-					fmt.Println("brrrr!")
+				case 'C':
+					cell.Log("brrrr!")
 					p.mu.Lock()
 					p.ambient_temperature.Add(-0.1)
 					p.mu.Unlock()
@@ -382,8 +400,10 @@ func kb(p *Person) {
 					}
 					p.mu.Unlock()
 				default:
-					fmt.Println("You pressed the key with numeric code", ev.Ch)
+					cell.Log(fmt.Sprintf("You pressed the %v key.\n", ev.Rune()))
 				}
+			default:
+				cell.Log("unknown event")
 			}
 		}
 	}
@@ -391,11 +411,12 @@ func kb(p *Person) {
 
 func main() {
 	p1 := Person{name: "Alex"}
+	cell := CreateCell()
 	go p1.Initialise()
-	go kb(&p1)
+	go kb(&p1, cell)
 	time.Sleep(100 * time.Millisecond)
 	for {
-		fmt.Println(p1)
+		cell.DrawText(1, 3, 100, 4, fmt.Sprintln(p1))
 		time.Sleep(100 * time.Millisecond)
 	}
 }
