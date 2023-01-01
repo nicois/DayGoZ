@@ -21,6 +21,7 @@ type Food struct {
 
 func Digester(p *Person, mouth chan Consumable) {
 	chewsPerMinute := 60.0
+	warned := false
 	var stomach []Consumable
 	for {
 		if len(stomach) == 0 {
@@ -41,10 +42,20 @@ func Digester(p *Person, mouth chan Consumable) {
 				break
 			}
 
+			if totalVolume <= 400 && warned {
+				p.Log("Your stomach is less bloated.")
+				warned = false
+			}
+
+			if totalVolume > 400 && !warned {
+				p.Log("Your stomach is getting pretty full. You probably shouldn't eat for a while.")
+				warned = true
+			}
 			if totalVolume > 500 {
 				p.Log("oh dear. You should eat more slowly! I hope there is no vomit on your shoes!")
 				stomach = nil
 				p.health.Add(-0.2)
+				p.water.Add(-0.2)
 				break
 			}
 
