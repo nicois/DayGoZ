@@ -41,23 +41,6 @@ func (a *Scalar) limits() Interval {
 //	return fmt.Sprintf("[%v-%v] %v", a.min, a.max, a.current)
 //}
 
-func min(fs ...float64) float64 {
-	min := fs[0]
-	for _, i := range fs[1:] {
-		if i < min {
-			min = i
-		}
-	}
-	return min
-}
-
-func minDuration(a, b time.Duration) time.Duration {
-	if a <= b {
-		return a
-	}
-	return b
-}
-
 func (a *Scalar) Add(v float64) float64 {
 	original := a.current
 	a.current += v
@@ -310,19 +293,20 @@ func (c *Cell) DrawText(x1, y1, x2, y2 int, text string) {
 	c.DrawTextWithStyle(x1, y1, x2, y2, text, c.style)
 }
 
+/*
 type Screen interface {
 	DrawText(x1, y1, x2, y2 int, text string)
 	DrawTextWithStyle(x1, y1, x2, y2 int, text string, style tcell.Style)
 	Shutdown()
 }
+*/
 
 type Cell struct {
 	style  tcell.Style
 	screen tcell.Screen
-	// := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
-	lines []string
-	w     int
-	h     int
+	lines  []string
+	w      int
+	h      int
 }
 
 var (
