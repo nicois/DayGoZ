@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type Food struct {
 
 func Digester(p *Person, mouth chan Consumable) {
 	chewsPerMinute := 60.0
+	capacity := 500.0
 	warned := false
 	var stomach []Consumable
 	for {
@@ -37,6 +39,8 @@ func Digester(p *Person, mouth chan Consumable) {
 			for _, consumable := range stomach {
 				totalVolume += consumable.GetRemainingVolume()
 			}
+			remainingCapacity := capacity - totalVolume
+			p.stomach = fmt.Sprintf("Stomach remaining capacity: %.0f", remainingCapacity)
 			if totalVolume <= 0.0000001 {
 				p.Log("finished digesting for now")
 				stomach = nil
@@ -83,7 +87,7 @@ func (f *Food) Consume(person *Person, minutes float64) {
 }
 
 func Water(volume float64) Consumable {
-	return &Food{name: "water", volume: volume, volumePerMinute: 10, foodPerVolume: 0, waterPerVolume: 0.01}
+	return &Food{name: "water", volume: volume, volumePerMinute: 100, foodPerVolume: 0, waterPerVolume: 0.01}
 }
 
 func Chocolate() Consumable {
@@ -94,6 +98,14 @@ func Peaches() Consumable {
 	return &Food{name: "a can of juicy peaches", volume: 300, volumePerMinute: 10, foodPerVolume: 0.005, waterPerVolume: 0.002}
 }
 
+func Apple() Consumable {
+	return &Food{name: "apple", volume: 80, volumePerMinute: 10, foodPerVolume: 0.002, waterPerVolume: 0.001}
+}
+
 func Banana() Consumable {
 	return &Food{name: "banana", volume: 100, volumePerMinute: 1, foodPerVolume: 0.005, waterPerVolume: 0.0001}
+}
+
+func MagicPotion() Consumable {
+	return &Food{name: "magic potion", volume: 100, volumePerMinute: 100, healthPerVolume: 0.001, waterPerVolume: 0.001}
 }

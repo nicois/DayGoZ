@@ -92,7 +92,8 @@ type Person struct {
 	insulation          Scalar
 	sender              Sender
 
-	mouth chan Consumable
+	mouth   chan Consumable
+	stomach string
 
 	activity          Activity
 	activityMutex     *sync.Mutex

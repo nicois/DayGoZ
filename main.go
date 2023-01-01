@@ -44,7 +44,7 @@ runes:
 			break
 		}
 		if r == '\n' {
-			for x := col; x < x2; x++ {
+			for x := col; x <= x2; x++ {
 				c.screen.SetContent(x, row, ' ', nil, c.style)
 			}
 			col = x1
@@ -56,8 +56,8 @@ runes:
 			col++
 		}
 	}
-	for y := row; y < y2; y++ {
-		for x := col; x < x2; x++ {
+	for y := row; y <= y2; y++ {
+		for x := col; x <= x2; x++ {
 			c.screen.SetContent(x, y, ' ', nil, c.style)
 		}
 		col = x1
@@ -135,7 +135,7 @@ func kb(p *Person, cell *Cell) {
 					p.insulation.Add(0.1)
 					p.mu.Unlock()
 				case 'w':
-					cell.Log("glugging on some water!")
+					cell.Log("glugging on a bit of water!")
 					p.mouth <- Water(10)
 				case 'c':
 					cell.Log("munching on some chocolate. Don't forget to clean your teeth!")
@@ -143,6 +143,12 @@ func kb(p *Person, cell *Cell) {
 				case 'p':
 					cell.Log("munching and slurping on a container of juicy peaches!")
 					p.mouth <- Peaches()
+				case 'm':
+					cell.Log("taking a swig of a magic potion!!!")
+					p.mouth <- MagicPotion()
+				case 'a':
+					cell.Log("ah, a crisp yummy apple. Just the thing I wanted!")
+					p.mouth <- Apple()
 				case 'b':
 					cell.Log("munching on a banana!")
 					p.mouth <- Banana()
@@ -227,6 +233,8 @@ func showPlayer(p *Person, c *Cell) {
 	showValue(c, "Temp.", &p.temperature, 60, 2)
 	showValue(c, "Amb.Temp.", &p.ambient_temperature, 70, 2)
 	showValue(c, "Insul.", &p.insulation, 80, 2)
+
+	c.DrawText(10, 5, 50, 5, p.stomach)
 }
 
 func main() {
@@ -238,6 +246,6 @@ func main() {
 	time.Sleep(100 * time.Millisecond)
 	for {
 		showPlayer(&p1, cell)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
