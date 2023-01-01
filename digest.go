@@ -25,6 +25,7 @@ func Digester(p *Person, mouth chan Consumable) {
 	var stomach []Consumable
 	for {
 		if len(stomach) == 0 {
+			warned = false
 			stomach = append(stomach, <-mouth)
 		}
 		digestionTimer := time.NewTimer(time.Minute / time.Duration(chewsPerMinute))
