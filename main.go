@@ -276,7 +276,7 @@ func CreateCell() *Cell {
 	return &Cell{style: defStyle, screen: s}
 }
 
-func (c *Cell) DrawText(x1, y1, x2, y2 int, text string) {
+func (c *Cell) DrawTextWithStyle(x1, y1, x2, y2 int, text string, style tcell.Style) {
 	row := y1
 	col := x1
 runes:
@@ -292,11 +292,9 @@ runes:
 			row++
 			continue runes
 		}
-		c.screen.SetContent(col, row, r, nil, c.style)
-		col++
-		if col >= x2 {
-			row++
-			col = x1
+		if col < x2 {
+			c.screen.SetContent(col, row, r, nil, style)
+			col++
 		}
 	}
 	for y := row; y < y2; y++ {
@@ -308,8 +306,13 @@ runes:
 	c.screen.Sync()
 }
 
+func (c *Cell) DrawText(x1, y1, x2, y2 int, text string) {
+	c.DrawTextWithStyle(x1, y1, x2, y2, text, c.style)
+}
+
 type Screen interface {
 	DrawText(x1, y1, x2, y2 int, text string)
+	DrawTextWithStyle(x1, y1, x2, y2 int, text string, style tcell.Style)
 	Shutdown()
 }
 
@@ -318,15 +321,24 @@ type Cell struct {
 	screen tcell.Screen
 	// := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	lines []string
+	w     int
+	h     int
 }
 
+var (
+	dangerStyle  tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorReset)
+	warningStyle tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorOrange).Background(tcell.ColorReset)
+	okStyle      tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorReset).Background(tcell.ColorReset)
+	goodStyle    tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorGreen).Background(tcell.ColorReset)
+)
+
 func (c *Cell) Log(s string) {
-	if len(c.lines) > 12 {
+	if len(c.lines) > 5 {
 		c.lines = c.lines[1:]
 	}
-	c.lines = append(c.lines, (time.Now().Format(time.UnixDate) + ": " + strings.TrimSpace(s)))
+	c.lines = append(c.lines, fmt.Sprintf("%v: %v", time.Now().Format(time.UnixDate), strings.TrimSpace(s)))
 
-	c.DrawText(1, 10, 100, 25, strings.Join(c.lines, "\n"))
+	c.DrawText(1, c.h-6, c.w, c.h, strings.Join(c.lines, "\n"))
 }
 
 func kb(p *Person, cell *Cell) {
@@ -341,6 +353,8 @@ func kb(p *Person, cell *Cell) {
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			cell.screen.Sync()
+			cell.w, cell.h = ev.Size()
+			cell.screen.Clear()
 		case *tcell.EventKey:
 
 			switch ev.Key() {
@@ -413,6 +427,34 @@ func kb(p *Person, cell *Cell) {
 	}
 }
 
+func showValue(c *Cell, title string, attr *Scalar, x int, y int) {
+	var style tcell.Style
+	if attr.current < 0.3 {
+		style = dangerStyle
+	} else if attr.current < 0.5 {
+		style = warningStyle
+	} else if attr.current < 0.8 {
+		style = okStyle
+	} else {
+		style = goodStyle
+	}
+
+	c.DrawTextWithStyle(x, y, x+9, y, title, style)
+	c.DrawTextWithStyle(x, y+1, x+9, y+1, fmt.Sprintf("%.03f", attr.current), style)
+}
+
+func showPlayer(p *Person, c *Cell) {
+	// return fmt.Sprintf("%v: F%0.3f; W%0.3f; B%0.3f; H:%0.3f; S:%0.3f; T:%0.3f; A:%0.3f; I:%0.3f", p.name, p.food.current, p.water.current, p.blood.current, p.health.current, p.stamina.current, p.temperature.current, p.ambient_temperature.current, p.insulation.current)
+	showValue(c, "Food", &p.food, 10, 2)
+	showValue(c, "Water", &p.water, 20, 2)
+	showValue(c, "Blood", &p.blood, 30, 2)
+	showValue(c, "Health", &p.health, 40, 2)
+	showValue(c, "Stamina", &p.stamina, 50, 2)
+	showValue(c, "Temp.", &p.temperature, 60, 2)
+	showValue(c, "Amb.Temp.", &p.ambient_temperature, 70, 2)
+	showValue(c, "Insul.", &p.insulation, 80, 2)
+}
+
 func main() {
 	p1 := Person{name: "Alex"}
 	cell := CreateCell()
@@ -420,7 +462,7 @@ func main() {
 	go kb(&p1, cell)
 	time.Sleep(100 * time.Millisecond)
 	for {
-		cell.DrawText(1, 3, 100, 4, fmt.Sprintln(p1))
+		showPlayer(&p1, cell)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
