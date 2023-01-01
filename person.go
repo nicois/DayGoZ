@@ -20,11 +20,21 @@ type Interval struct {
 	max float64
 }
 
+type ScalarProfile int
+
+const (
+	Undefined ScalarProfile = iota
+	OneGood
+	HalfGood
+	ZeroGood
+)
+
 type Scalar struct {
 	min       float64
 	max       float64
 	current   float64
 	listeners []chan float64
+	profile   ScalarProfile
 }
 
 func (a *Scalar) limits() Interval {
@@ -108,15 +118,15 @@ func (p *Person) StartActivity(activity Activity) error {
 func (p *Person) Initialise() {
 	p.mu = new(sync.Mutex)
 	p.activityMutex = new(sync.Mutex)
-	p.stamina = Scalar{max: 1, current: 0.8}
-	p.temperature = Scalar{max: 1, current: 0.5}
-	p.ambient_temperature = Scalar{min: -0.5, max: 1.5, current: 0.4}
+	p.stamina = Scalar{max: 1, current: 0.8, profile: OneGood}
+	p.temperature = Scalar{max: 1, current: 0.5, profile: HalfGood}
+	p.ambient_temperature = Scalar{min: -0.5, max: 1.5, current: 0.4, profile: HalfGood}
 	p.insulation = Scalar{max: 1, current: 0.1}
-	p.blood = Scalar{max: 1, current: 1}
-	p.health = Scalar{max: 1, current: 1}
-	p.water = Scalar{max: 1, current: 0.9}
-	p.food = Scalar{max: 1, current: 0.9}
-	// p.sender = ntfy.Create("foobarbaz")
+	p.blood = Scalar{max: 1, current: 1, profile: OneGood}
+	p.health = Scalar{max: 1, current: 1, profile: OneGood}
+	p.water = Scalar{max: 1, current: 0.9, profile: OneGood}
+	p.food = Scalar{max: 1, current: 0.9, profile: OneGood}
+	// p.sender = ntfy.Create("dayz")
 
 	last_time := time.Now()
 	summary := fmt.Sprint(p)

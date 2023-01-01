@@ -189,11 +189,24 @@ func kb(p *Person, cell *Cell) {
 
 func showValue(c *Cell, title string, attr *Scalar, x int, y int) {
 	var style tcell.Style
-	if attr.current < 0.3 {
+	var value float64
+
+	switch attr.profile {
+	case OneGood:
+		value = attr.current
+	case HalfGood:
+		value = 1 - 2*math.Abs(0.5-attr.current)
+	case ZeroGood:
+		value = 1 - attr.current
+	case Undefined:
+		value = 1
+	}
+
+	if value < 0.3 {
 		style = dangerStyle
-	} else if attr.current < 0.5 {
+	} else if value < 0.5 {
 		style = warningStyle
-	} else if attr.current < 0.8 {
+	} else if value < 0.8 {
 		style = okStyle
 	} else {
 		style = goodStyle
