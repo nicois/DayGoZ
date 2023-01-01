@@ -185,7 +185,7 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	p.adjust(map[*Scalar]float64{&p.food: -0.01, &p.water: -0.01, &p.blood: p.health.current * 0.01}, minutes)
 
 	// stamina:
-	rate := math.Pow(3*(1-math.Abs(p.stamina.current-0.5)), 4) / 10
+	rate := math.Pow(3*(1-math.Abs(p.stamina.current-0.5)), 4) / 5
 	p.adjust(map[*Scalar]float64{&p.food: -0.01 * rate, &p.water: -0.01 * rate, &p.stamina: rate, &p.temperature: 0.01 * rate}, minutes)
 
 	// body temp:

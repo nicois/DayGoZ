@@ -140,6 +140,9 @@ func kb(p *Person, cell *Cell) {
 				case 'c':
 					cell.Log("munching on some chocolate. Don't forget to clean your teeth!")
 					p.mouth <- Chocolate()
+				case 'p':
+					cell.Log("munching and slurping on a container of juicy peaches!")
+					p.mouth <- Peaches()
 				case 'b':
 					cell.Log("munching on a banana!")
 					p.mouth <- Banana()

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -74,6 +73,10 @@ func Chocolate() Consumable {
 	return &Food{name: "chocolate", volume: 100, volumePerMinute: 100, foodPerVolume: 0.001, waterPerVolume: 0}
 }
 
+func Peaches() Consumable {
+	return &Food{name: "a can of juicy peaches", volume: 300, volumePerMinute: 10, foodPerVolume: 0.005, waterPerVolume: 0.002}
+}
+
 func Banana() Consumable {
-	return &Food{name: "banana", volume: 100, volumePerMinute: 1, foodPerVolume: 0.001, waterPerVolume: 0.0001}
+	return &Food{name: "banana", volume: 100, volumePerMinute: 1, foodPerVolume: 0.005, waterPerVolume: 0.0001}
 }
