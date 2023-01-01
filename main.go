@@ -281,6 +281,9 @@ func (c *Cell) DrawText(x1, y1, x2, y2 int, text string) {
 	col := x1
 runes:
 	for _, r := range []rune(text) {
+		if row > y2 {
+			break
+		}
 		if r == '\n' {
 			for x := col; x < x2; x++ {
 				c.screen.SetContent(x, row, ' ', nil, c.style)
@@ -294,9 +297,6 @@ runes:
 		if col >= x2 {
 			row++
 			col = x1
-		}
-		if row > y2 {
-			break
 		}
 	}
 	for y := row; y < y2; y++ {
@@ -326,7 +326,7 @@ func (c *Cell) Log(s string) {
 	}
 	c.lines = append(c.lines, (time.Now().Format(time.UnixDate) + ": " + strings.TrimSpace(s)))
 
-	c.DrawText(1, 15, 100, 25, strings.Join(c.lines, "\n"))
+	c.DrawText(1, 10, 100, 25, strings.Join(c.lines, "\n"))
 }
 
 func kb(p *Person, cell *Cell) {
@@ -366,31 +366,35 @@ func kb(p *Person, cell *Cell) {
 					p.ambient_temperature.Add(-0.1)
 					p.mu.Unlock()
 				case 72: // H
-					fmt.Println("phew!")
+					cell.Log("phew!")
 					p.mu.Lock()
 					p.ambient_temperature.Add(0.1)
 					p.mu.Unlock()
-				case 100: // d
-					fmt.Println("gluuuuug!")
+				case 'd': // d
+					cell.Log("gluuuuug!")
 					p.mu.Lock()
 					p.water.Add(0.3)
 					p.mu.Unlock()
-				case 101: // e
-					fmt.Println("yuuuuunm!")
+				case 'e': // e
+					// fmt.Println("yuuuuunm!")
+					cell.Log("yuuuuunm!")
 					p.mu.Lock()
 					p.food.Add(0.3)
 					p.mu.Unlock()
-				case 114: // r
-					fmt.Println("ruuuuunnn!")
-					run := Run{}
-					p.StartActivity(&run)
-					// p.do
-				case 122: // z
-					fmt.Println("owch!")
+				case 'r':
+					cell.Log("ruuuuunnn!")
+					// run := Run{}
+					// p.StartActivity(&run)
+					p.mu.Lock()
+					p.stamina.Add(-0.3)
+					p.mu.Unlock()
+
+				case 'z':
+					cell.Log("owch!")
 					p.mu.Lock()
 					damage := math.Max(0, 0.001+rand.NormFloat64()/30)
 					if damage > 0 {
-						fmt.Printf("You are hurt, losing %.3f health\n", damage)
+						cell.Log(fmt.Sprintf("You are hurt, losing %.3f health\n", damage))
 						p.health.Add(-damage)
 						p.notify(fmt.Sprintf("You are hurt, losing %.3f health\n", damage), "default")
 						p.notify(fmt.Sprint(p), "low")
