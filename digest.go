@@ -41,6 +41,13 @@ func Digester(p *Person, mouth chan Consumable) {
 				break
 			}
 
+			if totalVolume > 500 {
+				p.Log("oh dear. You should eat more slowly! I hope there is no vomit on your shoes!")
+				stomach = nil
+				p.health.Add(-0.2)
+				break
+			}
+
 			for _, consumable := range stomach {
 				consumable.Consume(p, consumable.GetRemainingVolume()/(totalVolume*chewsPerMinute))
 			}
