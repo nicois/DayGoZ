@@ -98,12 +98,24 @@ type Person struct {
 	activityMutex     *sync.Mutex
 	activityTicker    *chan float64
 	activityCanceller *chan bool
+
+	cell *Cell
+}
+
+func (p *Person) Log(message string) {
+	if p.cell != nil {
+		p.cell.Log(message)
+	}
 }
 
 type Activity interface {
 	GetChannels() (canceller *chan bool, ticker *chan float64)
 	Begin() error
 	Cancel()
+}
+
+type Logger interface {
+	Log(message string)
 }
 
 func (p *Person) StartActivity(activity Activity) error {

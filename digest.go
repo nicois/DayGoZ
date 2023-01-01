@@ -1,7 +1,10 @@
 ///usr/bin/true; exec /usr/bin/env go run "$0" "$@"
 package main
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Consumable interface {
 	GetRemainingVolume() float64
@@ -33,6 +36,12 @@ func Digester(p *Person, mouth chan Consumable) {
 			for _, consumable := range stomach {
 				totalVolume += consumable.GetRemainingVolume()
 			}
+			if totalVolume <= 0.0000001 {
+				p.Log("finished digesting for now")
+				stomach = nil
+				break
+			}
+
 			for _, consumable := range stomach {
 				consumable.Consume(p, consumable.GetRemainingVolume()/(totalVolume*chewsPerMinute))
 			}
@@ -62,7 +71,7 @@ func Water(volume float64) Consumable {
 }
 
 func Chocolate() Consumable {
-	return &Food{name: "chocolate", volume: 100, volumePerMinute: 10, foodPerVolume: 0.001, waterPerVolume: 0}
+	return &Food{name: "chocolate", volume: 100, volumePerMinute: 100, foodPerVolume: 0.001, waterPerVolume: 0}
 }
 
 func Banana() Consumable {

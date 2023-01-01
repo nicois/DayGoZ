@@ -93,12 +93,12 @@ var (
 )
 
 func (c *Cell) Log(s string) {
-	if len(c.lines) > 5 {
+	if len(c.lines) > 15 {
 		c.lines = c.lines[1:]
 	}
 	c.lines = append(c.lines, fmt.Sprintf("%v: %v", time.Now().Format(time.UnixDate), strings.TrimSpace(s)))
 
-	c.DrawText(1, c.h-6, c.w, c.h, strings.Join(c.lines, "\n"))
+	c.DrawText(1, c.h-16, c.w, c.h, strings.Join(c.lines, "\n"))
 }
 
 func kb(p *Person, cell *Cell) {
@@ -137,6 +137,9 @@ func kb(p *Person, cell *Cell) {
 				case 'w':
 					cell.Log("glugging on some water!")
 					p.mouth <- Water(10)
+				case 'c':
+					cell.Log("munching on some chocolate. Don't forget to clean your teeth!")
+					p.mouth <- Chocolate()
 				case 'b':
 					cell.Log("munching on a banana!")
 					p.mouth <- Banana()
@@ -150,17 +153,6 @@ func kb(p *Person, cell *Cell) {
 					p.mu.Lock()
 					p.ambient_temperature.Add(0.1)
 					p.mu.Unlock()
-				case 'd': // d
-					cell.Log("gluuuuug!")
-					p.mu.Lock()
-					p.water.Add(0.3)
-					p.mu.Unlock()
-				case 'e': // e
-					// fmt.Println("yuuuuunm!")
-					cell.Log("yuuuuunm!")
-					p.mu.Lock()
-					p.food.Add(0.3)
-					p.mu.Unlock()
 				case 'r':
 					cell.Log("ruuuuunnn!")
 					// run := Run{}
@@ -172,7 +164,7 @@ func kb(p *Person, cell *Cell) {
 				case 'z':
 					cell.Log("owch!")
 					p.mu.Lock()
-					damage := math.Max(0, 0.001+rand.NormFloat64()/30)
+					damage := math.Max(0, 0.05+rand.NormFloat64()/30)
 					if damage > 0 {
 						cell.Log(fmt.Sprintf("You are hurt, losing %.3f health\n", damage))
 						p.health.Add(-damage)
@@ -237,6 +229,7 @@ func showPlayer(p *Person, c *Cell) {
 func main() {
 	p1 := Person{name: "Alex"}
 	cell := CreateCell()
+	p1.cell = cell
 	go p1.Initialise()
 	go kb(&p1, cell)
 	time.Sleep(100 * time.Millisecond)
