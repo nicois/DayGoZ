@@ -41,7 +41,13 @@ func Digester(p *Person, mouth chan Consumable) {
 				stomach = nil
 				break
 			}
-
+			if totalVolume > 500 {
+				p.Log("oh dear. You should eat more slowly! I hope there is no vomit on your shoes!")
+				stomach = nil
+				p.health.Add(-0.2)
+				p.water.Add(-0.2)
+				break
+			}
 			if totalVolume <= 400 && warned {
 				p.Log("Your stomach is less bloated.")
 				warned = false
@@ -51,14 +57,6 @@ func Digester(p *Person, mouth chan Consumable) {
 				p.Log("Your stomach is getting pretty full. You probably shouldn't eat for a while.")
 				warned = true
 			}
-			if totalVolume > 500 {
-				p.Log("oh dear. You should eat more slowly! I hope there is no vomit on your shoes!")
-				stomach = nil
-				p.health.Add(-0.2)
-				p.water.Add(-0.2)
-				break
-			}
-
 			for _, consumable := range stomach {
 				consumable.Consume(p, consumable.GetRemainingVolume()/(totalVolume*chewsPerMinute))
 			}
