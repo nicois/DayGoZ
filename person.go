@@ -41,10 +41,6 @@ func (a *Scalar) limits() Interval {
 	return Interval{min: a.min - a.current, max: a.max - a.current}
 }
 
-//func (a *Scalar) String() string {
-//	return fmt.Sprintf("[%v-%v] %v", a.min, a.max, a.current)
-//}
-
 func (a *Scalar) Add(v float64) float64 {
 	original := a.current
 	a.current += v
@@ -58,25 +54,6 @@ func (a *Scalar) Add(v float64) float64 {
 		listener <- a.current
 	}
 	return a.current - original
-}
-
-// the state of A (e.g. food) can affect B (e.g. health)
-func (a *Scalar) Link(b *Scalar) {
-	last_update := time.Now()
-	for {
-		time.Sleep(10 * time.Millisecond)
-		if a.current > a.min {
-			now := time.Now()
-			duration := now.Sub(last_update)
-			added := b.Add(duration.Seconds())
-			a.Add(-added)
-			last_update = now
-		}
-	}
-}
-
-type Feedback interface {
-	Link()
 }
 
 type Person struct {
@@ -202,11 +179,14 @@ func (p *Person) calculate_time_based_effects(minutes float64) {
 	}
 
 	// ambient temp effects:
-	rate = (p.ambient_temperature.current - p.temperature.current) * (1 - p.insulation.current)
+	rate = 10 * (p.ambient_temperature.current - p.temperature.current) * (1 - p.insulation.current)
 	p.adjust(map[*Scalar]float64{&p.temperature: 0.1 * rate}, minutes)
 
 	// health (temperature effects)
 	temperature_happiness := 0.1 - math.Abs(p.temperature.current-0.5)
+	if temperature_happiness < 0 {
+		temperature_happiness *= 20
+	}
 	p.adjust(map[*Scalar]float64{&p.health: temperature_happiness / 10, &p.food: -0.01, &p.water: -0.01}, minutes)
 
 	// health (starvation effects)
