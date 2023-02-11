@@ -189,7 +189,7 @@ func Blood(volume float64) *blood {
 }
 
 func Water(volume float64) *food {
-	return &food{name: "water", volume: volume, volumePerMinute: 100, foodPerVolume: 0, waterPerVolume: 0.01, icon: '🚰'}
+	return &food{name: "water", volume: volume, volumePerMinute: 100, foodPerVolume: 0, waterPerVolume: 0.001, icon: '🚰'}
 }
 
 func Chocolate() *food {
@@ -197,7 +197,7 @@ func Chocolate() *food {
 }
 
 func MilkPowder() *food {
-	return &food{name: "a packet of milk powder", height: 2, width: 1, volume: 100, volumePerMinute: 20, foodPerVolume: 0.002, waterPerVolume: -0.001, icon: '🥛'}
+	return &food{name: "a packet of milk powder", height: 1, width: 1, volume: 100, volumePerMinute: 20, foodPerVolume: 0.002, waterPerVolume: -0.001, icon: '🥛'}
 }
 
 func Peaches() *food {
@@ -221,5 +221,5 @@ func Ryvita() *food {
 }
 
 func MagicPotion() *food {
-	return &food{name: "magic potion", volume: 100, volumePerMinute: 100, healthPerVolume: 0.001, waterPerVolume: 0.001, icon: '🏺'}
+	return &food{name: "magic potion", volume: 100, volumePerMinute: 100, healthPerVolume: 0.001, waterPerVolume: 0.0008, icon: '🏺'}
 }

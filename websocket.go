@@ -53,6 +53,9 @@ func Connect(username string, session *melody.Session) *app {
 				} else {
 					switch matches[1] {
 					case "LOG":
+						if len(a.logs) > 10 {
+							a.logs = a.logs[1:]
+						}
 						a.logs = append(a.logs, matches[3])
 					case "STAT":
 						stat := matches[2][1:]

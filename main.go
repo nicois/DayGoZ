@@ -85,6 +85,16 @@ func handleCommands(p *Person) {
 				p.Log("<pant!>")
 			}
 			p.mu.Unlock()
+		case 's':
+			// run := Run{}
+			// p.StartActivity(&run)
+			p.mu.Lock()
+			if p.stamina.TryAdd(-0.1) {
+				p.Log("sneaking quickly away from a zombie you spot in the distance.....!")
+			} else {
+				p.Log("time for a quick breather")
+			}
+			p.mu.Unlock()
 
 		case 'z':
 			p.Log("owch!")
