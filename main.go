@@ -143,7 +143,7 @@ type InfoStream struct {
 	information chan string
 }
 
-func start_websocket_server(port int) error {
+func start_websocket_server(domain string, port int) error {
 	m := melody.New()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +162,12 @@ func start_websocket_server(port int) error {
 
 	register_websockets(m)
 	fmt.Printf("listening on port %v\n", port)
-	return http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+	// return http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+	httpsListener, err := makeHttpsListener(domain, port)
+	if err != nil {
+		return err
+	}
+	return http.Serve(httpsListener, nil)
 }
 
 func showPlayer(p *Person) {
@@ -198,7 +203,7 @@ func update(name string, s *Scalar, c chan string) {
 }
 
 func main() {
-	if err := start_websocket_server(8000); err != nil {
+	if err := start_websocket_server("dayz.dkyuf5dhjf.kozow.com", 8443); err != nil {
 		fmt.Println(err)
 	}
 }
